@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"testing"
@@ -145,15 +146,38 @@ func TestConfigureAWSProfile(t *testing.T) {
 		Expiration:      time.Date(2023, 12, 31, 23, 59, 59, 0, time.UTC),
 	}
 
+	// Temporarily redirect stdout to avoid printing warnings during tests
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
 	// Test with region
 	err := configureAWSProfile("test-profile", testCreds, "source-profile", "us-west-2")
 	if err != nil {
 		t.Errorf("configureAWSProfile with region failed: %v", err)
 	}
 
-	// Test without region
+	// Test without region - mock a successful source profile region retrieval
+	// Add a mock response for getAWSConfigValue
+	getConfigValueMock := func(profile, key string) (string, error) {
+		if profile == "source-profile" && key == "region" {
+			return "us-east-1", nil
+		}
+		return "", nil
+	}
+
+	// Save the original function and restore it after the test
+	origGetAWSConfigValue := getAWSConfigValue
+	getAWSConfigValue = getConfigValueMock
+	defer func() { getAWSConfigValue = origGetAWSConfigValue }()
+
 	err = configureAWSProfile("test-profile", testCreds, "source-profile", "")
 	if err != nil {
 		t.Errorf("configureAWSProfile without region failed: %v", err)
 	}
+
+	// Restore stdout
+	w.Close()
+	os.Stdout = oldStdout
+	io.Copy(io.Discard, r) // Discard captured output
 }

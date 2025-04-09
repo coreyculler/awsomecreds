@@ -10,6 +10,7 @@ import (
 
 // Add this at the top of the file, after the imports
 var execCommand = exec.Command
+var getAWSConfigValue = getAWSConfigValueFunc
 
 // AWS STS Credentials structure
 type Credentials struct {
@@ -208,7 +209,7 @@ func runAWSConfigureCommand(profile, key, value string) error {
 }
 
 // getAWSConfigValue gets a configuration value from an AWS profile
-func getAWSConfigValue(profile, key string) (string, error) {
+func getAWSConfigValueFunc(profile, key string) (string, error) {
 	cmd := execCommand("aws", "configure", "get", key, "--profile", profile)
 	output, err := cmd.CombinedOutput()
 	if err != nil {

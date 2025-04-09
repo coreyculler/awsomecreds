@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"io"
+	"os"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -30,6 +32,11 @@ func TestRootCommand(t *testing.T) {
 
 // Test the generate command flags
 func TestGenerateCommandFlags(t *testing.T) {
+	// Redirect stderr to discard output during tests
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
 	// Test required flags
 	testCases := []struct {
 		name    string
@@ -77,4 +84,9 @@ func TestGenerateCommandFlags(t *testing.T) {
 			}
 		})
 	}
+
+	// Restore stderr
+	w.Close()
+	os.Stderr = oldStderr
+	io.Copy(io.Discard, r) // Discard captured output
 }
