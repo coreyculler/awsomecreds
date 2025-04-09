@@ -30,8 +30,8 @@ func TestRootCommand(t *testing.T) {
 	}
 }
 
-// Test the generate command flags
-func TestGenerateCommandFlags(t *testing.T) {
+// Test the generate-profile command flags
+func TestGenerateProfileCommandFlags(t *testing.T) {
 	// Redirect stderr to discard output during tests
 	oldStderr := os.Stderr
 	r, w, _ := os.Pipe()
@@ -45,17 +45,17 @@ func TestGenerateCommandFlags(t *testing.T) {
 	}{
 		{
 			name:    "missing role-arn",
-			args:    []string{"generate", "-n", "test-profile"},
+			args:    []string{"generate-profile", "-n", "test-profile"},
 			wantErr: true,
 		},
 		{
 			name:    "missing new-profile",
-			args:    []string{"generate", "-r", "arn:aws:iam::123456789012:role/TestRole"},
+			args:    []string{"generate-profile", "-r", "arn:aws:iam::123456789012:role/TestRole"},
 			wantErr: true,
 		},
 		{
 			name:    "all required flags",
-			args:    []string{"generate", "-r", "arn:aws:iam::123456789012:role/TestRole", "-n", "test-profile"},
+			args:    []string{"generate-profile", "-r", "arn:aws:iam::123456789012:role/TestRole", "-n", "test-profile"},
 			wantErr: false,
 		},
 	}
@@ -64,17 +64,17 @@ func TestGenerateCommandFlags(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create a new command to avoid state from previous tests
 			cmd := &cobra.Command{Use: "awsomecreds"}
-			generateCmd := &cobra.Command{
-				Use:  "generate",
+			generateProfileCmd := &cobra.Command{
+				Use:  "generate-profile",
 				RunE: func(cmd *cobra.Command, args []string) error { return nil },
 			}
-			cmd.AddCommand(generateCmd)
+			cmd.AddCommand(generateProfileCmd)
 
 			var roleArn, newProfile string
-			generateCmd.Flags().StringVarP(&roleArn, "role-arn", "r", "", "")
-			generateCmd.Flags().StringVarP(&newProfile, "new-profile", "n", "", "")
-			generateCmd.MarkFlagRequired("role-arn")
-			generateCmd.MarkFlagRequired("new-profile")
+			generateProfileCmd.Flags().StringVarP(&roleArn, "role-arn", "r", "", "")
+			generateProfileCmd.Flags().StringVarP(&newProfile, "new-profile", "n", "", "")
+			generateProfileCmd.MarkFlagRequired("role-arn")
+			generateProfileCmd.MarkFlagRequired("new-profile")
 
 			cmd.SetArgs(tc.args)
 			err := cmd.Execute()
