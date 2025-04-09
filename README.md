@@ -63,6 +63,10 @@ awsomecreds generate -r arn:aws:iam::123456789012:role/my-role -n my-temp-profil
 
 After running the command, you can use the temporary profile with AWS CLI:
 
+```bash
+aws --profile my-temp-profile s3 ls
+```
+
 ## Prerequisites
 
 - AWS CLI installed and configured
