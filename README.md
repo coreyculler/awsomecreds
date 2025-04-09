@@ -27,15 +27,21 @@ go install
 
 ## Usage
 
-Flags 
+### Flags
+
 --source-profile, -s: The AWS profile to use as the source for authentication (optional, uses default profile if not specified)
+
 --role-arn, -r: The ARN of the role to assume (required)
+
 --mfa-token, -m: The MFA token code (optional, required only if the role requires MFA)
+
 --new-profile, -n: The name for the new profile to create (required)
+
 --region: AWS region to use for the new profile (optional, uses source profile's region if not specified)
+
 --duration, -d: Session duration in seconds (900-43200, default is 3600/1 hour)
 
-## Examples
+### Examples
 
 Using default profile with MFA
 
@@ -55,18 +61,19 @@ Specifying region and duration
 awsomecreds generate -r arn:aws:iam::123456789012:role/my-role -n my-temp-profile --region us-west-2 -d 7200
 ```
 
-## After running the command, you can use the temporary profile with AWS CLI:
+After running the command, you can use the temporary profile with AWS CLI:
 
 ## Prerequisites
-AWS CLI installed and configured
-AWS IAM user with permissions to assume the target role
-MFA device configured (if required by the role)
+
+- AWS CLI installed and configured
+- AWS IAM user with permissions to assume the target role
+- MFA device configured (if required by the role)
 
 ## Development
 
 ### Requirements
-Go 1.21 or higher
-AWS CLI
+- Go 1.21 or higher
+- AWS CLI
 
 ### Building
 See the Makefile for additional commands.
