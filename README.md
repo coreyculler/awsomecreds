@@ -1,6 +1,6 @@
 # AWSomeCreds
 
-AWSomeCreds is a CLI tool that generates temporary AWS credentials using AWS STS and sets them using aws configure. It allows you to assume roles with or without MFA authentication and create temporary profiles for AWS CLI usage.
+AWSomeCreds is a CLI tool that generates temporary AWS credentials using AWS STS and sets them using the AWS CLI. It allows you to assume roles with or without MFA authentication and create temporary profiles for tools that support AWS CLI profiles.
 
 ## Features
 

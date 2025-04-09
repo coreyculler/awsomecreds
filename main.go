@@ -25,10 +25,8 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "awsomecreds",
-	Short: "Generate temporary AWS credentials using STS",
-	Long: `AWSomeCreds is a CLI tool that generates temporary AWS credentials using AWS STS
-and sets them using aws configure. It allows you to assume roles with or without MFA authentication
-and create temporary profiles for AWS CLI usage.`,
+	Short: "Assume roles and generate temporary AWS credential profiles",
+	Long:  `AWSomeCreds is a CLI tool that generates temporary AWS credentials using AWS STS and sets them using the AWS CLI. It allows you to assume roles with or without MFA authentication and create temporary profiles for tools that support AWS CLI profiles.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// If no subcommand is provided, show help
 		cmd.Help()
@@ -40,7 +38,7 @@ var generateCmd = &cobra.Command{
 	Short: "Generate an AWS temporary profile",
 	Long: `Generate an AWS temporary profile by assuming a role.
 Supports both MFA and non-MFA authentication methods.
-The temporary profile can then be used with the AWS CLI.
+The temporary profile can then be used with the AWS CLI and other tools that support AWS CLI profiles.
 
 Examples:
   # Using default profile with MFA
