@@ -50,6 +50,12 @@ test:
 # Run integration tests
 integration-test:
 	@echo "Running integration tests..."
+	@echo "Note: Integration tests require the following environment variables to be set:"
+	@echo "  - TEST_ROLE_ARN: The ARN of the role to assume (required)"
+	@echo "  - TEST_SOURCE_PROFILE: The AWS profile to use (optional)"
+	@echo "  - TEST_MFA_TOKEN: MFA token if required by the role (optional)"
+	@echo "  - TEST_REGION: AWS region (optional)"
+	@echo ""
 	RUN_INTEGRATION_TESTS=1 $(GOTEST) -v ./...
 	@echo "Integration tests complete"
 

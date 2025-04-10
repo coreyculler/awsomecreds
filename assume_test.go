@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 )
@@ -180,4 +182,132 @@ func TestConfigureAWSProfile(t *testing.T) {
 	w.Close()
 	os.Stdout = oldStdout
 	io.Copy(io.Discard, r) // Discard captured output
+}
+
+// Test outputTempCredentials function
+func TestOutputTempCredentials(t *testing.T) {
+	// Save original exec.Command and restore it after the test
+	origExecCommand := execCommand
+	execCommand = mockExecCommand
+	defer func() { execCommand = origExecCommand }()
+
+	// Add a mock response for getAWSConfigValue
+	getConfigValueMock := func(profile, key string) (string, error) {
+		if profile == "source-profile" && key == "region" {
+			return "us-east-1", nil
+		}
+		return "", nil
+	}
+
+	// Save the original function and restore it after the test
+	origGetAWSConfigValue := getAWSConfigValue
+	getAWSConfigValue = getConfigValueMock
+	defer func() { getAWSConfigValue = origGetAWSConfigValue }()
+
+	// Test cases for different output formats and configurations
+	testCases := []struct {
+		name           string
+		sourceProfile  string
+		roleArn        string
+		mfaToken       string
+		region         string
+		duration       int
+		outputFormat   string
+		expectedOutput []string
+	}{
+		{
+			name:          "Shell output with region",
+			sourceProfile: "source-profile",
+			roleArn:       "arn:aws:iam::123456789012:role/TestRole",
+			mfaToken:      "123456",
+			region:        "us-west-2",
+			duration:      3600,
+			outputFormat:  "shell",
+			expectedOutput: []string{
+				"export AWS_ACCESS_KEY_ID=ASIAMOCK123456789012",
+				"export AWS_SECRET_ACCESS_KEY=mockSecretKey123456789012345678901234",
+				"export AWS_SESSION_TOKEN=mockSessionToken123456789012345678901234567890123456789012345678901234567890",
+				"export AWS_REGION=us-west-2",
+				"export AWS_DEFAULT_REGION=us-west-2",
+				"export AWS_CREDENTIAL_EXPIRATION=",
+			},
+		},
+		{
+			name:          "Shell output without region",
+			sourceProfile: "source-profile",
+			roleArn:       "arn:aws:iam::123456789012:role/TestRole",
+			mfaToken:      "",
+			region:        "",
+			duration:      3600,
+			outputFormat:  "shell",
+			expectedOutput: []string{
+				"export AWS_ACCESS_KEY_ID=ASIAMOCK123456789012",
+				"export AWS_SECRET_ACCESS_KEY=mockSecretKey123456789012345678901234",
+				"export AWS_SESSION_TOKEN=mockSessionToken123456789012345678901234567890123456789012345678901234567890",
+				"export AWS_REGION=us-east-1",
+				"export AWS_DEFAULT_REGION=us-east-1",
+				"export AWS_CREDENTIAL_EXPIRATION=",
+			},
+		},
+		{
+			name:          "JSON output",
+			sourceProfile: "",
+			roleArn:       "arn:aws:iam::123456789012:role/TestRole",
+			mfaToken:      "",
+			region:        "",
+			duration:      7200,
+			outputFormat:  "json",
+			expectedOutput: []string{
+				`"AccessKeyId": "ASIAMOCK123456789012"`,
+				`"SecretAccessKey": "mockSecretKey123456789012345678901234"`,
+				`"SessionToken": "mockSessionToken123456789012345678901234567890123456789012345678901234567890"`,
+				`"Expiration":`,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Redirect stderr to discard status messages
+			oldStderr := os.Stderr
+			stderrR, stderrW, _ := os.Pipe()
+			os.Stderr = stderrW
+
+			// Capture stdout to check the output
+			oldStdout := os.Stdout
+			stdoutR, stdoutW, _ := os.Pipe()
+			os.Stdout = stdoutW
+
+			// Call the function
+			err := outputTempCredentials(tc.sourceProfile, tc.roleArn, tc.mfaToken, tc.region, tc.duration, tc.outputFormat)
+
+			// Close the write end of the pipes to complete the capture
+			stdoutW.Close()
+			stderrW.Close()
+
+			// Restore stdout and stderr
+			os.Stdout = oldStdout
+			os.Stderr = oldStderr
+
+			// Read the captured output
+			var stdoutBuf bytes.Buffer
+			io.Copy(&stdoutBuf, stdoutR)
+
+			// Discard stderr output
+			io.Copy(io.Discard, stderrR)
+
+			// Check for errors
+			if err != nil {
+				t.Errorf("outputTempCredentials failed: %v", err)
+			}
+
+			// Check that the output contains expected strings
+			output := stdoutBuf.String()
+			for _, expected := range tc.expectedOutput {
+				if !strings.Contains(output, expected) {
+					t.Errorf("Expected output to contain '%s', but it didn't.\nOutput: %s", expected, output)
+				}
+			}
+		})
+	}
 }

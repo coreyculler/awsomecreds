@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -216,4 +217,105 @@ func getAWSConfigValueFunc(profile, key string) (string, error) {
 		return "", fmt.Errorf("failed to get %s for profile %s: %w", key, profile, err)
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+// outputTempCredentials generates temporary AWS credentials and outputs them to stdout
+func outputTempCredentials(sourceProfile, roleArn, mfaToken, region string, duration int, outputFormat string) error {
+	var mfaSerial string
+	var err error
+
+	// Use default profile if no source profile is specified
+	profileArg := "--profile"
+	profileValue := sourceProfile
+
+	if sourceProfile == "" {
+		fmt.Fprintf(os.Stderr, "No source profile specified, using default AWS profile\n")
+		profileArg = "" // Don't use --profile flag when using default profile
+		profileValue = ""
+	} else {
+		fmt.Fprintf(os.Stderr, "Using source profile: %s\n", sourceProfile)
+	}
+
+	// Only get MFA device if token is provided
+	if mfaToken != "" {
+		// Get the MFA device ARN for the source profile
+		fmt.Fprintf(os.Stderr, "Getting MFA device ARN...\n")
+		mfaSerial, err = getMFADeviceARN(profileArg, profileValue)
+		if err != nil {
+			return fmt.Errorf("error getting MFA device: %w", err)
+		}
+
+		if mfaSerial == "None" || mfaSerial == "" {
+			return fmt.Errorf("no MFA device found, but MFA token was provided")
+		}
+
+		fmt.Fprintf(os.Stderr, "Found MFA device: %s\n", mfaSerial)
+	} else {
+		fmt.Fprintf(os.Stderr, "No MFA token provided, assuming role without MFA\n")
+	}
+
+	// Display duration information
+	if duration == 3600 {
+		fmt.Fprintf(os.Stderr, "Using default session duration of 1 hour (3600 seconds)\n")
+	} else {
+		fmt.Fprintf(os.Stderr, "Using specified session duration of %d hours (%d seconds)\n", duration/3600, duration)
+	}
+
+	// Assume the role with or without MFA
+	fmt.Fprintf(os.Stderr, "Assuming role %s...\n", roleArn)
+	credentials, err := assumeRole(profileArg, profileValue, roleArn, mfaSerial, mfaToken, duration)
+	if err != nil {
+		return fmt.Errorf("error assuming role: %w\n\nThis could be due to:\n"+
+			"1. The MFA token has expired or is incorrect\n"+
+			"2. Your device's time might be out of sync with AWS servers\n"+
+			"3. You might not have permission to assume this role\n"+
+			"4. The requested duration exceeds the role's maximum session duration\n"+
+			"5. MFA might be required for this role\n\n"+
+			"Try again with a shorter duration (e.g., 1 hour = 3600 seconds) or provide an MFA token if required", err)
+	}
+
+	// Calculate session duration
+	currentTime := time.Now()
+	durationHours := int(credentials.Expiration.Sub(currentTime).Hours())
+	durationMinutes := int(credentials.Expiration.Sub(currentTime).Minutes()) % 60
+
+	fmt.Fprintf(os.Stderr, "Temporary credentials have been successfully generated\n")
+	fmt.Fprintf(os.Stderr, "Credentials will expire at: %s (valid for approximately %dh %dm)\n\n",
+		credentials.Expiration.Local().Format("2006-01-02 15:04:05 MST"), durationHours, durationMinutes)
+
+	// Output credentials in the requested format
+	switch outputFormat {
+	case "json":
+		// Output credentials as JSON
+		jsonOutput, err := json.MarshalIndent(credentials, "", "  ")
+		if err != nil {
+			return fmt.Errorf("error marshaling credentials to JSON: %w", err)
+		}
+		fmt.Println(string(jsonOutput))
+	case "shell", "":
+		// Output credentials as shell environment variables
+		if region == "" {
+			// Try to get region from source profile if not provided
+			if sourceProfile != "" {
+				sourceRegion, err := getAWSConfigValue(sourceProfile, "region")
+				if err == nil && sourceRegion != "" {
+					region = sourceRegion
+				}
+			}
+		}
+
+		// Print shell commands to set environment variables
+		fmt.Printf("export AWS_ACCESS_KEY_ID=%s\n", credentials.AccessKeyId)
+		fmt.Printf("export AWS_SECRET_ACCESS_KEY=%s\n", credentials.SecretAccessKey)
+		fmt.Printf("export AWS_SESSION_TOKEN=%s\n", credentials.SessionToken)
+		if region != "" {
+			fmt.Printf("export AWS_REGION=%s\n", region)
+			fmt.Printf("export AWS_DEFAULT_REGION=%s\n", region)
+		}
+		fmt.Printf("export AWS_CREDENTIAL_EXPIRATION=%s\n", credentials.Expiration.Format(time.RFC3339))
+	default:
+		return fmt.Errorf("unsupported output format: %s", outputFormat)
+	}
+
+	return nil
 }

@@ -1,11 +1,15 @@
 # AWSomeCreds
 
+[![AWSomeCreds CI](https://github.com/coreyculler/awsomecreds/actions/workflows/go-test.yml/badge.svg)](https://github.com/coreyculler/awsomecreds/actions/workflows/go-test.yml)
+
 AWSomeCreds is a CLI tool that generates temporary AWS credentials using AWS STS and sets them using aws configure. It allows you to assume roles with or without MFA authentication and create temporary profiles for AWS CLI usage.
 
 ## Features
 
 - Assume AWS IAM roles with or without MFA authentication
 - Create temporary AWS CLI profiles with the assumed credentials
+- Export temporary credentials as environment variables in your shell
+- Output credentials in JSON format
 - Configurable session duration
 - Support for custom AWS regions
 - Works with default or named AWS profiles as the source
@@ -32,10 +36,20 @@ go install github.com/coreyculler/awsomecreds@latest
 ## Usage
 
 ```bash
+# Generate a new AWS profile with temporary credentials
 awsomecreds generate-profile [flags]
+
+# Generate temporary AWS credentials and export to environment variables
+awsomecreds generate [flags]
 ```
 
-### Flags
+### Commands
+
+#### generate-profile
+
+Generate a temporary AWS credential profile that can be used with AWS CLI and SDKs.
+
+##### Flags
 
 - `--source-profile`, `-s`: The AWS profile to use as the source for authentication (optional, uses default profile if not specified)
 - `--role-arn`, `-r`: The ARN of the role to assume (required)
@@ -44,19 +58,19 @@ awsomecreds generate-profile [flags]
 - `--region`: AWS region to use for the new profile (optional, uses source profile's region if not specified)
 - `--duration`, `-d`: Session duration in seconds (900-43200, default is 3600/1 hour)
 
-### Examples
+##### Examples
 
-#### Using default profile with MFA
+###### Using default profile with MFA
 ```bash
 awsomecreds generate-profile -r arn:aws:iam::123456789012:role/my-role -m 123456 -n my-temp-profile
 ```
 
-#### Using a specific source profile without MFA
+###### Using a specific source profile without MFA
 ```bash
 awsomecreds generate-profile -s my-source-profile -r arn:aws:iam::123456789012:role/my-role -n my-temp-profile
 ```
 
-#### Specifying region and duration
+###### Specifying region and duration
 ```bash
 awsomecreds generate-profile -r arn:aws:iam::123456789012:role/my-role -n my-temp-profile --region us-west-2 -d 7200
 ```
@@ -65,6 +79,53 @@ After running the command, you can use the temporary profile with AWS CLI:
 
 ```bash
 aws --profile my-temp-profile s3 ls
+```
+
+#### generate
+
+Generate temporary AWS credentials and output them to stdout for setting as environment variables in the parent shell.
+
+##### Flags
+
+- `--source-profile`, `-s`: The AWS profile to use as the source for authentication (optional, uses default profile if not specified)
+- `--role-arn`, `-r`: The ARN of the role to assume (required)
+- `--mfa-token`, `-m`: The MFA token code (optional, required only if the role requires MFA)
+- `--region`: AWS region to use for the new profile (optional, uses source profile's region if not specified)
+- `--duration`, `-d`: Session duration in seconds (900-43200, default is 3600/1 hour)
+- `--output`, `-o`: Output format: 'shell' for shell environment variables or 'json' for JSON format (default is 'shell')
+
+##### Examples
+
+###### Using default profile with MFA (shell variables)
+```bash
+eval $(awsomecreds generate -r arn:aws:iam::123456789012:role/my-role -m 123456)
+```
+
+###### Using a specific source profile without MFA
+```bash
+eval $(awsomecreds generate -s my-source-profile -r arn:aws:iam::123456789012:role/my-role)
+```
+
+###### Specifying region and duration
+```bash
+eval $(awsomecreds generate -r arn:aws:iam::123456789012:role/my-role --region us-west-2 -d 7200)
+```
+
+###### Output credentials in JSON format
+```bash
+awsomecreds generate -r arn:aws:iam::123456789012:role/my-role -o json
+```
+
+After running the command with `eval $(...)`, the AWS environment variables will be set in your current shell session:
+
+```bash
+# Variables set in your shell
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_SESSION_TOKEN=...
+AWS_REGION=... (if region was specified)
+AWS_DEFAULT_REGION=... (if region was specified)
+AWS_CREDENTIAL_EXPIRATION=...
 ```
 
 ## Prerequisites
